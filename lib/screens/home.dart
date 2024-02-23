@@ -1,8 +1,7 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:mockapi_flutter_crud/apiServices/api_service.dart';
 import 'package:mockapi_flutter_crud/screens/AddButton.dart';
+import 'package:mockapi_flutter_crud/screens/DeleteModal.dart';
 import 'package:mockapi_flutter_crud/screens/single.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,9 +14,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> blogs = [];
   bool isLoading = true;
-  bool isDeleting = false;
+
   bool isLoadingAfter = false;
-  var isSelectedId = null;
 
   final ApiService _apiService =
       ApiService(); // Create an instance of ApiService
@@ -26,6 +24,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _fetchDataFromAPI();
+  }
+
+  void deleteItem(Map blog) {
+    setState(() {
+      blogs.remove(blog); // Remove the item from the list
+    });
   }
 
   Future<void> _fetchDataFromAPI() async {
@@ -37,33 +41,6 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           blogs = response.data;
           isLoading = false;
-        });
-      } else {
-        // API call failed
-        print('Failed to fetch data from API');
-      }
-    } catch (e) {
-      // Exception occurred during API call
-      print('Exception occurred: $e');
-    }
-  }
-
-  Future<void> _deletDataFromApi(blog) async {
-    int id = int.parse(blog['id']);
-
-    setState(() {
-      isDeleting = true;
-      isSelectedId = blog['id'];
-    });
-
-    try {
-      final response = await _apiService.deleteDataFromAPI("blog", id);
-      // Handle the response
-      if (response.statusCode == 200) {
-        // API call was successful, process the data here
-        blogs.remove(blog);
-        setState(() {
-          isDeleting = false;
         });
       } else {
         // API call failed
@@ -120,11 +97,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: isDeleting && isSelectedId == blog['id']
-                            ? CircularProgressIndicator()
-                            : const Icon(Icons.delete),
-                        onPressed: () => (_deletDataFromApi(blog)),
-                      ),
+                          icon: const Icon(Icons.delete),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return DeleteConfirmationModal(
+                                  id: blog,
+                                  // Pass the ID of the item to delete
+                                  onDelete: (bool isSuccess) {
+                                    if (isSuccess) {
+                                      // Handle successful deletion
+                                      deleteItem(
+                                          blog); // Remove the item from the list
+                                    } else {
+                                      // Handle deletion failure
+                                      print('Failed to delete item.');
+                                    }
+                                  },
+                                );
+                              },
+                            );
+                          }),
                       IconButton(
                           icon: const Icon(Icons.edit),
                           onPressed: () => edit(blog))
@@ -153,7 +147,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void edit(dynamic blog) {
-    print(blog);
     TextEditingController title = TextEditingController(text: blog['title']);
     TextEditingController description =
         TextEditingController(text: blog['description']);
